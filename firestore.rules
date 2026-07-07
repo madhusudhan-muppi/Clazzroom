@@ -1,0 +1,68 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper function to check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Helper function to get user role
+    function getUserRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+
+    // users collection
+    match /users/{userId} {
+      // Users can read their own profile. Mentors could read other profiles if needed.
+      allow read: if isAuthenticated();
+      // Users can only create/update their own profile
+      allow write: if request.auth.uid == userId;
+    }
+
+    // classrooms collection
+    match /classrooms/{classroomId} {
+      // Any authenticated user can read classrooms (to see if they want to join, etc)
+      allow read: if isAuthenticated();
+      
+      // Only mentors can create/update/delete classrooms
+      allow write: if isAuthenticated() && getUserRole() == 'mentor';
+      
+      // members subcollection
+      match /members/{memberId} {
+        // Class members or mentors can read
+        allow read: if isAuthenticated();
+        // Students can add themselves, mentors can remove/update
+        allow write: if isAuthenticated();
+      }
+
+      // assignments subcollection
+      match /assignments/{assignmentId} {
+        // Anyone in the class can read assignments
+        allow read: if isAuthenticated();
+        // Only mentors can create/update assignments
+        allow write: if isAuthenticated() && getUserRole() == 'mentor';
+        
+        // submissions subcollection
+        match /submissions/{studentId} {
+          // A student can read/write their own submission. Mentors can read/write all.
+          allow read: if isAuthenticated() && (request.auth.uid == studentId || getUserRole() == 'mentor');
+          
+          // Students can only write to their own submission, and cannot modify 'score' or 'feedback'
+          // Mentors can write to any submission (for grading)
+          allow create, update: if isAuthenticated() && 
+            (
+              (request.auth.uid == studentId && !request.resource.data.keys().hasAny(['score', 'feedback'])) 
+              || getUserRole() == 'mentor'
+            );
+        }
+      }
+    }
+    
+    // announcements collection
+    match /announcements/{announcementId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && getUserRole() == 'mentor';
+    }
+  }
+}
