@@ -9,6 +9,12 @@ service firebase.storage {
       allow write: if request.auth != null && request.auth.uid == studentId;
     }
 
+    // Assignment files folder (Mentors attaching files)
+    match /assignments/{classroomId}/{fileName} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
+    }
+
     // Project files folder
     match /projects/{classroomId}/{projectId}/{fileName} {
       // Anyone authenticated can read project files (mentor + student)
@@ -23,3 +29,4 @@ service firebase.storage {
     }
   }
 }
+

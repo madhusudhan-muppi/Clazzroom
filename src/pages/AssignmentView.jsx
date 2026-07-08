@@ -120,12 +120,12 @@ export default function AssignmentView() {
       }
 
       const mySubRef = doc(db, `classrooms/${classId}/assignments/${assignmentId}/submissions/${currentUser.uid}`);
-      await setDoc(mySubRef, submissionData);
+      await setDoc(mySubRef, submissionData, { merge: true });
       
       setMySubmission({ id: currentUser.uid, ...submissionData });
     } catch (err) {
-      console.error(err);
-      alert('Failed to submit assignment.');
+      console.error('Error submitting assignment:', err);
+      alert(`Failed to submit assignment. Error: ${err.message}`);
     } finally {
       setUploading(false);
       setUploadProgress(0);
@@ -182,6 +182,15 @@ export default function AssignmentView() {
             <div>
               <h1 className="text-3xl font-bold text-gray-900">{assignment.title}</h1>
               <p className="mt-2 text-gray-600 whitespace-pre-wrap">{assignment.description}</p>
+              
+              {assignment.mentor_file_url && (
+                <div className="mt-4 inline-flex items-center gap-2 p-3 bg-blue-50 border border-blue-100 rounded-lg text-sm text-blue-900">
+                  <span className="font-semibold">Attachment:</span>
+                  <a href={assignment.mentor_file_url} target="_blank" rel="noreferrer" className="text-primary hover:underline font-medium">
+                    {assignment.mentor_file_name || 'View File'}
+                  </a>
+                </div>
+              )}
             </div>
             <div className="bg-gray-100 px-4 py-2 rounded-lg shrink-0">
               <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Due Date</div>
