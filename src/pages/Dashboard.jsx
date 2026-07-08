@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { LogOut, Plus } from 'lucide-react';
-import { collection, query, where, getDocs, collectionGroup, documentId } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, getDoc, documentId } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import ClassCard from '../components/ClassCard';
 import CreateClassModal from '../components/CreateClassModal';
