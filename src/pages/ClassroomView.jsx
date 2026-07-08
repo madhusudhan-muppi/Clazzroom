@@ -1,31 +1,42 @@
 import { useParams, Link } from 'react-router-dom';
 import { useState, useEffect } from 'react';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, getDocs, query, orderBy } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useAuth } from '../contexts/AuthContext';
-import { ArrowLeft, Users, FileText } from 'lucide-react';
+import { ArrowLeft, Users, FileText, Plus } from 'lucide-react';
+import CreateAssignmentModal from '../components/CreateAssignmentModal';
 
 export default function ClassroomView() {
   const { id } = useParams();
   const { userData } = useAuth();
   const [classroom, setClassroom] = useState(null);
+  const [assignments, setAssignments] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [isAssignmentModalOpen, setIsAssignmentModalOpen] = useState(false);
+
+  async function fetchClassroomAndAssignments() {
+    try {
+      const docRef = doc(db, 'classrooms', id);
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) {
+        setClassroom({ id: docSnap.id, ...docSnap.data() });
+      }
+
+      // Fetch assignments
+      const assignmentsRef = collection(db, `classrooms/${id}/assignments`);
+      const q = query(assignmentsRef, orderBy('created_at', 'desc'));
+      const assignmentSnap = await getDocs(q);
+      setAssignments(assignmentSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  }
 
   useEffect(() => {
-    async function fetchClassroom() {
-      try {
-        const docRef = doc(db, 'classrooms', id);
-        const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) {
-          setClassroom({ id: docSnap.id, ...docSnap.data() });
-        }
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchClassroom();
+    fetchClassroomAndAssignments();
   }, [id]);
 
   if (loading) {
@@ -54,10 +65,22 @@ export default function ClassroomView() {
           <Link to="/" className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-gray-900 mb-4 transition-colors">
             <ArrowLeft size={16} /> Back to Dashboard
           </Link>
-          <h1 className="text-3xl font-bold text-gray-900">{classroom.name}</h1>
-          {classroom.description && (
-            <p className="mt-2 text-gray-600">{classroom.description}</p>
-          )}
+          <div className="flex justify-between items-start">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">{classroom.name}</h1>
+              {classroom.description && (
+                <p className="mt-2 text-gray-600">{classroom.description}</p>
+              )}
+            </div>
+            {userData?.role === 'mentor' && (
+              <button
+                onClick={() => setIsAssignmentModalOpen(true)}
+                className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary/90 rounded-lg transition-colors shadow-sm"
+              >
+                <Plus size={16} /> Create Assignment
+              </button>
+            )}
+          </div>
           
           <div className="mt-6 flex flex-wrap gap-4">
             {userData?.role === 'mentor' && (
@@ -75,29 +98,61 @@ export default function ClassroomView() {
       <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-6">
-            {/* Stream Section (Coming in next phases) */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-              <div className="flex items-center gap-3 text-gray-900 font-medium border-b border-gray-100 pb-4 mb-4">
-                <FileText size={20} className="text-primary" />
-                Assignments & Announcements
-              </div>
-              <p className="text-gray-500 text-center py-10">
-                Stream will be available in Phase 5 & 6.
-              </p>
+            
+            {/* Assignments List */}
+            <div className="space-y-4">
+              <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                <FileText size={20} className="text-primary" /> Assignments
+              </h2>
+              
+              {assignments.length > 0 ? (
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden divide-y divide-gray-100">
+                  {assignments.map(assignment => (
+                    <Link
+                      key={assignment.id}
+                      to={`/c/${id}/a/${assignment.id}`}
+                      className="block p-5 hover:bg-gray-50 transition-colors"
+                    >
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <h3 className="text-md font-medium text-gray-900">{assignment.title}</h3>
+                          <p className="text-sm text-gray-500 mt-1 line-clamp-1">{assignment.description}</p>
+                        </div>
+                        <span className="text-xs font-medium text-gray-500 bg-gray-100 px-2 py-1 rounded whitespace-nowrap ml-4">
+                          Due: {new Date(assignment.due_date).toLocaleDateString()}
+                        </span>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              ) : (
+                <div className="bg-white rounded-xl shadow-sm border border-dashed border-gray-300 p-8 text-center text-gray-500">
+                  No assignments yet.
+                </div>
+              )}
             </div>
+
           </div>
           
           <div className="space-y-6">
-            {/* Sidebar info */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
               <h3 className="font-semibold text-gray-900 mb-4">About</h3>
               <p className="text-sm text-gray-600">
-                Created at {new Date(classroom.created_at).toLocaleDateString()}
+                Created on {new Date(classroom.created_at).toLocaleDateString()}
               </p>
             </div>
           </div>
         </div>
       </main>
+
+      {userData?.role === 'mentor' && (
+        <CreateAssignmentModal
+          isOpen={isAssignmentModalOpen}
+          onClose={() => setIsAssignmentModalOpen(false)}
+          onCreated={fetchClassroomAndAssignments}
+          classroomId={id}
+        />
+      )}
     </div>
   );
 }

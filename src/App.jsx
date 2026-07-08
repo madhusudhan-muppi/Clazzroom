@@ -5,6 +5,7 @@ import Login from './pages/Login';
 import Signup from './pages/Signup';
 import Dashboard from './pages/Dashboard';
 import ClassroomView from './pages/ClassroomView';
+import AssignmentView from './pages/AssignmentView';
 
 function App() {
   return (
@@ -26,6 +27,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <ClassroomView />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/c/:classId/a/:assignmentId" 
+            element={
+              <ProtectedRoute>
+                <AssignmentView />
               </ProtectedRoute>
             } 
           />
