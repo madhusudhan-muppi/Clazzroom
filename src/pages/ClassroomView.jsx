@@ -1,19 +1,25 @@
 import { useParams, Link } from 'react-router-dom';
 import { useState, useEffect } from 'react';
-import { doc, getDoc, collection, getDocs, query, orderBy } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, collection, getDocs, query, orderBy } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useAuth } from '../contexts/AuthContext';
-import { ArrowLeft, Users, FileText, Plus } from 'lucide-react';
+import { ArrowLeft, Users, FileText, Plus, Calendar, FolderOpen } from 'lucide-react';
 import CreateAssignmentModal from '../components/CreateAssignmentModal';
 import Announcements from '../components/Announcements';
+import SetTimelineModal from '../components/SetTimelineModal';
+import RegisterProjectModal from '../components/RegisterProjectModal';
+import TimelineBadge from '../components/TimelineBadge';
 
 export default function ClassroomView() {
   const { id } = useParams();
-  const { userData } = useAuth();
+  const { userData, currentUser } = useAuth();
   const [classroom, setClassroom] = useState(null);
   const [assignments, setAssignments] = useState([]);
+  const [myProjects, setMyProjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isAssignmentModalOpen, setIsAssignmentModalOpen] = useState(false);
+  const [isTimelineModalOpen, setIsTimelineModalOpen] = useState(false);
+  const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
 
   async function fetchClassroomAndAssignments() {
     try {
@@ -28,6 +34,15 @@ export default function ClassroomView() {
       const q = query(assignmentsRef, orderBy('created_at', 'desc'));
       const assignmentSnap = await getDocs(q);
       setAssignments(assignmentSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+
+      // Fetch student's own projects
+      if (currentUser) {
+        const projectsSnap = await getDocs(collection(db, `classrooms/${id}/projects`));
+        const mine = projectsSnap.docs
+          .filter(d => d.data().student_id === currentUser.uid)
+          .map(d => ({ id: d.id, ...d.data() }));
+        setMyProjects(mine);
+      }
       
     } catch (err) {
       console.error(err);
@@ -39,6 +54,11 @@ export default function ClassroomView() {
   useEffect(() => {
     fetchClassroomAndAssignments();
   }, [id]);
+
+  async function handleSaveTimeline(timelineData) {
+    await updateDoc(doc(db, 'classrooms', id), timelineData);
+    setClassroom(prev => ({ ...prev, ...timelineData }));
+  }
 
   if (loading) {
     return (
@@ -74,24 +94,43 @@ export default function ClassroomView() {
               )}
             </div>
             {userData?.role === 'mentor' && (
-              <button
-                onClick={() => setIsAssignmentModalOpen(true)}
-                className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary/90 rounded-lg transition-colors shadow-sm"
-              >
-                <Plus size={16} /> Create Assignment
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setIsTimelineModalOpen(true)}
+                  className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                >
+                  <Calendar size={16} /> Timeline
+                </button>
+                <button
+                  onClick={() => setIsAssignmentModalOpen(true)}
+                  className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary/90 rounded-lg transition-colors shadow-sm"
+                >
+                  <Plus size={16} /> Assignment
+                </button>
+              </div>
             )}
           </div>
           
           <div className="mt-6 flex flex-wrap gap-4">
             {userData?.role === 'mentor' && (
-              <div className="inline-flex items-center gap-2 px-3 py-1 bg-primary/10 text-primary rounded-full text-sm font-medium font-mono">
-                Code: {classroom.class_code}
+              <>
+                <div className="inline-flex items-center gap-2 px-3 py-1 bg-primary/10 text-primary rounded-full text-sm font-medium font-mono">
+                  Code: {classroom.class_code}
+                </div>
+                <Link
+                  to={`/c/${id}/students`}
+                  className="inline-flex items-center gap-2 px-3 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-full text-sm font-medium transition-colors"
+                >
+                  <Users size={14} /> View Students & Projects
+                </Link>
+              </>
+            )}
+            {classroom.project_start_date && (
+              <div className="inline-flex items-center gap-2 text-gray-500 text-sm">
+                <Calendar size={14} />
+                Timeline: {new Date(classroom.project_start_date).toLocaleDateString()} — {new Date(classroom.project_end_date).toLocaleDateString()}
               </div>
             )}
-            <div className="inline-flex items-center gap-2 text-gray-500 text-sm">
-              <Users size={16} /> Class Stream
-            </div>
           </div>
         </div>
       </div>
@@ -106,6 +145,54 @@ export default function ClassroomView() {
           </div>
           
           <div className="space-y-6">
+
+            {/* Student: My Projects */}
+            {userData?.role === 'student' && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                    <FolderOpen size={20} className="text-primary" /> My Projects
+                  </h2>
+                  <button
+                    onClick={() => setIsProjectModalOpen(true)}
+                    className="flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-primary border border-primary/30 hover:bg-primary/5 rounded-lg transition-colors"
+                  >
+                    <Plus size={14} /> Register
+                  </button>
+                </div>
+                
+                {myProjects.length > 0 ? (
+                  <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden divide-y divide-gray-100">
+                    {myProjects.map(project => (
+                      <Link
+                        key={project.id}
+                        to={`/c/${id}/project/${project.id}`}
+                        className="block p-4 hover:bg-gray-50 transition-colors"
+                      >
+                        <h3 className="text-sm font-medium text-gray-900 mb-1 truncate">{project.topic}</h3>
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-gray-500">
+                            {project.stages.filter(s => s.status === 'approved').length}/8 stages
+                          </span>
+                          {classroom?.project_start_date && classroom?.project_end_date && (
+                            <TimelineBadge
+                              stages={project.stages}
+                              startDate={classroom.project_start_date}
+                              endDate={classroom.project_end_date}
+                              customDurations={classroom.custom_durations}
+                            />
+                          )}
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="bg-white rounded-xl shadow-sm border border-dashed border-gray-300 p-6 text-center text-sm text-gray-500">
+                    No projects registered yet.
+                  </div>
+                )}
+              </div>
+            )}
             
             {/* Assignments List in Sidebar */}
             <div className="space-y-4">
@@ -146,9 +233,26 @@ export default function ClassroomView() {
       </main>
 
       {userData?.role === 'mentor' && (
-        <CreateAssignmentModal
-          isOpen={isAssignmentModalOpen}
-          onClose={() => setIsAssignmentModalOpen(false)}
+        <>
+          <CreateAssignmentModal
+            isOpen={isAssignmentModalOpen}
+            onClose={() => setIsAssignmentModalOpen(false)}
+            onCreated={fetchClassroomAndAssignments}
+            classroomId={id}
+          />
+          <SetTimelineModal
+            isOpen={isTimelineModalOpen}
+            onClose={() => setIsTimelineModalOpen(false)}
+            onSave={handleSaveTimeline}
+            existingTimeline={classroom}
+          />
+        </>
+      )}
+
+      {userData?.role === 'student' && (
+        <RegisterProjectModal
+          isOpen={isProjectModalOpen}
+          onClose={() => setIsProjectModalOpen(false)}
           onCreated={fetchClassroomAndAssignments}
           classroomId={id}
         />

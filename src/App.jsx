@@ -6,6 +6,8 @@ import Signup from './pages/Signup';
 import Dashboard from './pages/Dashboard';
 import ClassroomView from './pages/ClassroomView';
 import AssignmentView from './pages/AssignmentView';
+import StudentsListPage from './pages/StudentsListPage';
+import ProjectTimelinePage from './pages/ProjectTimelinePage';
 
 function App() {
   return (
@@ -35,6 +37,22 @@ function App() {
             element={
               <ProtectedRoute>
                 <AssignmentView />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/c/:classId/students" 
+            element={
+              <ProtectedRoute>
+                <StudentsListPage />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/c/:classId/project/:projectId" 
+            element={
+              <ProtectedRoute>
+                <ProjectTimelinePage />
               </ProtectedRoute>
             } 
           />

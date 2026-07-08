@@ -57,6 +57,26 @@ service cloud.firestore {
             );
         }
       }
+
+      // projects subcollection (Teacher Review Process)
+      match /projects/{projectId} {
+        // Any authenticated user can read projects in a class
+        allow read: if isAuthenticated();
+        
+        // Students can create their own project
+        allow create: if isAuthenticated() && request.resource.data.student_id == request.auth.uid;
+        
+        // Students can update their own project (stage submissions, file uploads)
+        // Mentors can update any project (approvals, rejections, feedback)
+        allow update: if isAuthenticated() && 
+          (
+            resource.data.student_id == request.auth.uid 
+            || getUserRole() == 'mentor'
+          );
+        
+        // Only mentors can delete projects
+        allow delete: if isAuthenticated() && getUserRole() == 'mentor';
+      }
     }
     
     // announcements collection
