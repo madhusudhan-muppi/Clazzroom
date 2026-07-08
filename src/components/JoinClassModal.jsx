@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { collection, query, where, getDocs, doc, setDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, setDoc, updateDoc, arrayUnion } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { X } from 'lucide-react';
@@ -38,6 +38,11 @@ export default function JoinClassModal({ isOpen, onClose, onJoined }) {
         student_id: currentUser.uid,
         role_in_class: 'student',
         joined_at: new Date().toISOString()
+      });
+
+      // 3. Update the user document to track enrolled classes (avoiding collectionGroup index requirement)
+      await updateDoc(doc(db, 'users', currentUser.uid), {
+        enrolled_classes: arrayUnion(classroomId)
       });
       
       onJoined();

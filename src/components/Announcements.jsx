@@ -14,8 +14,7 @@ export default function Announcements({ classroomId }) {
   useEffect(() => {
     const q = query(
       collection(db, 'announcements'),
-      where('classroom_id', '==', classroomId),
-      orderBy('created_at', 'desc')
+      where('classroom_id', '==', classroomId)
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -23,6 +22,9 @@ export default function Announcements({ classroomId }) {
       snapshot.forEach((doc) => {
         ann.push({ id: doc.id, ...doc.data() });
       });
+      // Sort in Javascript to avoid needing a Firestore composite index
+      ann.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+      
       setAnnouncements(ann);
       setLoading(false);
     }, (error) => {

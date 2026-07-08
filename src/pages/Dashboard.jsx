@@ -23,30 +23,31 @@ export default function Dashboard() {
         const classes = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         setClassrooms(classes);
       } else if (userData?.role === 'student') {
-        // Fetch classes this student is a member of using a Collection Group query
-        // This requires an index in Firestore on 'members' subcollection
-        const membersRef = collectionGroup(db, 'members');
-        const q = query(membersRef, where('student_id', '==', currentUser.uid));
-        const membershipSnapshot = await getDocs(q);
+        // Fetch classes this student is enrolled in using their users document
+        // This avoids the need for a Firestore composite index on collectionGroup
+        const userDocRef = doc(db, 'users', currentUser.uid);
+        const userDoc = await getDoc(userDocRef);
         
-        const classIds = membershipSnapshot.docs.map(doc => doc.ref.parent.parent.id);
-        
-        if (classIds.length > 0) {
-          // Chunk classIds into groups of 10 for the 'in' query
-          const classChunks = [];
-          for (let i = 0; i < classIds.length; i += 10) {
-            classChunks.push(classIds.slice(i, i + 10));
-          }
+        if (userDoc.exists()) {
+          const classIds = userDoc.data().enrolled_classes || [];
           
-          let allClasses = [];
-          for (const chunk of classChunks) {
-            const classQuery = query(collection(db, 'classrooms'), where(documentId(), 'in', chunk));
-            const classSnap = await getDocs(classQuery);
-            allClasses = [...allClasses, ...classSnap.docs.map(d => ({ id: d.id, ...d.data() }))];
+          if (classIds.length > 0) {
+            // Chunk classIds into groups of 10 for the 'in' query
+            const classChunks = [];
+            for (let i = 0; i < classIds.length; i += 10) {
+              classChunks.push(classIds.slice(i, i + 10));
+            }
+            
+            let allClasses = [];
+            for (const chunk of classChunks) {
+              const classQuery = query(collection(db, 'classrooms'), where(documentId(), 'in', chunk));
+              const classSnap = await getDocs(classQuery);
+              allClasses = [...allClasses, ...classSnap.docs.map(d => ({ id: d.id, ...d.data() }))];
+            }
+            setClassrooms(allClasses);
+          } else {
+            setClassrooms([]);
           }
-          setClassrooms(allClasses);
-        } else {
-          setClassrooms([]);
         }
       }
     } catch (err) {
