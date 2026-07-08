@@ -5,6 +5,7 @@ import { db } from '../lib/firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { ArrowLeft, Users, FileText, Plus } from 'lucide-react';
 import CreateAssignmentModal from '../components/CreateAssignmentModal';
+import Announcements from '../components/Announcements';
 
 export default function ClassroomView() {
   const { id } = useParams();
@@ -99,7 +100,14 @@ export default function ClassroomView() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-6">
             
-            {/* Assignments List */}
+            {/* Announcements Stream */}
+            <Announcements classroomId={id} />
+
+          </div>
+          
+          <div className="space-y-6">
+            
+            {/* Assignments List in Sidebar */}
             <div className="space-y-4">
               <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
                 <FileText size={20} className="text-primary" /> Assignments
@@ -111,30 +119,22 @@ export default function ClassroomView() {
                     <Link
                       key={assignment.id}
                       to={`/c/${id}/a/${assignment.id}`}
-                      className="block p-5 hover:bg-gray-50 transition-colors"
+                      className="block p-4 hover:bg-gray-50 transition-colors"
                     >
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <h3 className="text-md font-medium text-gray-900">{assignment.title}</h3>
-                          <p className="text-sm text-gray-500 mt-1 line-clamp-1">{assignment.description}</p>
-                        </div>
-                        <span className="text-xs font-medium text-gray-500 bg-gray-100 px-2 py-1 rounded whitespace-nowrap ml-4">
-                          Due: {new Date(assignment.due_date).toLocaleDateString()}
-                        </span>
+                      <h3 className="text-sm font-medium text-gray-900 mb-1">{assignment.title}</h3>
+                      <div className="flex justify-between items-center text-xs text-gray-500">
+                        <span>Due: {new Date(assignment.due_date).toLocaleDateString()}</span>
                       </div>
                     </Link>
                   ))}
                 </div>
               ) : (
-                <div className="bg-white rounded-xl shadow-sm border border-dashed border-gray-300 p-8 text-center text-gray-500">
+                <div className="bg-white rounded-xl shadow-sm border border-dashed border-gray-300 p-6 text-center text-sm text-gray-500">
                   No assignments yet.
                 </div>
               )}
             </div>
 
-          </div>
-          
-          <div className="space-y-6">
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
               <h3 className="font-semibold text-gray-900 mb-4">About</h3>
               <p className="text-sm text-gray-600">
